@@ -1,11 +1,14 @@
 using './main.bicep'
 
-param prefix = 'dummyfin'
 param environment = 'tst'
-param region = 'cac'
-param location = 'canadacentral'
 
+// Resource Group configuration
+param resourceGroupConfig = {
+  groupType: 'app'
+  tags: {}
+}
 
+// Storage configuration for testing
 param storageConfig = {
   sku: 'Standard_LRS'
   accessTier: 'Hot'

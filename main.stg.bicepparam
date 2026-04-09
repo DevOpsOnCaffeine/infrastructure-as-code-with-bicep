@@ -1,11 +1,14 @@
 using './main.bicep'
 
-param prefix = 'dummyfin'
 param environment = 'stg'
-param region = 'cac'
-param location = 'canadacentral'
 
+// Resource Group configuration
+param resourceGroupConfig = {
+  groupType: 'app'
+  tags: {}
+}
 
+// Storage configuration for staging
 param storageConfig = {
   sku: 'Standard_GRS'
   accessTier: 'Hot'

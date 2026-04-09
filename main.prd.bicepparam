@@ -1,11 +1,14 @@
 using './main.bicep'
 
-param prefix = 'dummyfin'
 param environment = 'prd'
-param region = 'cac'
-param location = 'canadacentral'
 
+// Resource Group configuration
+param resourceGroupConfig = {
+  groupType: 'app'
+  tags: {}
+}
 
+// Storage configuration for production
 param storageConfig = {
   sku: 'Premium_GRS'
   accessTier: 'Cool'

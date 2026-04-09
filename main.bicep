@@ -1,11 +1,16 @@
-targetScope = 'resourceGroup'
+targetScope = 'subscription'
 
-// Naming convention variables
-param prefix string
+// Directly load the value into the parameter default
+param prefix string = loadJsonContent('common-settings.json').prefix
+param region string = loadJsonContent('common-settings.json').region
+param location string = loadJsonContent('common-settings.json').location
+
+// This works and allows you to still override them in .bicepparam if needed!
+
 param environment string
-param region string
 
-param location string = resourceGroup().location
+// Resource Group configuration
+param resourceGroupConfig object
 
 // Storage Account configuration
 param storageConfig object
@@ -16,8 +21,25 @@ param appServicePlanConfig object
 // App Service configuration
 param appServiceConfig object
 
+// Single source of truth for resource group name
+func buildNameWithHyphens(prefix string, resType string, env string, reg string, suffix string) string => '${prefix}-${resType}-${env}-${reg}-${suffix}'
+var resourceGroupName = buildNameWithHyphens(prefix, 'rg', environment, region, resourceGroupConfig.groupType)
+var resourceGroup = az.resourceGroup(resourceGroupName)
+
+// Resource Group Module
+module resourceGroupModule 'modules/resourceGroup.bicep' = {
+  name: 'resourceGroup'
+  params: {
+    name: resourceGroupName
+    location: location
+    tags: resourceGroupConfig.tags
+  }
+}
+
 // Module references
 module storageAccountModule 'modules/storageAccount.bicep' = {
+  dependsOn: [resourceGroupModule]
+  scope: resourceGroup
   name: 'storageAccount'
   params: {
     prefix: prefix
@@ -31,6 +53,8 @@ module storageAccountModule 'modules/storageAccount.bicep' = {
 }
 
 module appServicePlanModule 'modules/appServicePlan.bicep' = {
+  dependsOn: [resourceGroupModule]
+  scope: resourceGroup
   name: 'appServicePlan'
   params: {
     prefix: prefix
@@ -44,6 +68,8 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = {
 }
 
 module appServiceModule 'modules/appService.bicep' = {
+  dependsOn: [resourceGroupModule]
+  scope: resourceGroup
   name: 'appService'
   params: {
     prefix: prefix
@@ -57,6 +83,8 @@ module appServiceModule 'modules/appService.bicep' = {
 }
 
 // Outputs
+output resourceGroupId string = resourceGroupModule.outputs.id
+output resourceGroupName string = resourceGroupModule.outputs.name
 output storageAccountId string = storageAccountModule.outputs.id
 output storageAccountName string = storageAccountModule.outputs.name
 output storageAccountBlobEndpoint string = storageAccountModule.outputs.primaryBlobEndpoint

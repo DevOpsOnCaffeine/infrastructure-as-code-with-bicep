@@ -7,6 +7,10 @@
         "/^az deployment group create -g dummyFin-rg-dev-cac-01 -f main\\.bicep -p main\\.dev\\.bicepparams$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^az deployment sub create --location canadacentral -n deploy-dev-\\$\\(Get-Date -Format 'yyyyMMddHHmmss'\\) -f main\\.bicep -p main\\.dev\\.bicepparam$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
