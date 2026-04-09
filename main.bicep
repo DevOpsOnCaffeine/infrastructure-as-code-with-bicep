@@ -21,6 +21,13 @@ param appServicePlanConfig object
 // App Service configuration (array for multiple apps)
 param appServiceConfig array = []
 
+// Networking configuration
+param networkingConfig object = {
+  enableVnetIntegration: false
+  enableApplicationGateway: false
+  vnetAddressSpace: ['10.0.0.0/16']
+}
+
 // Single source of truth for resource group name
 func buildNameWithHyphens(prefix string, resType string, env string, reg string, suffix string) string => '${prefix}-${resType}-${env}-${reg}-${suffix}'
 var resourceGroupName = buildNameWithHyphens(prefix, 'rg', environment, region, resourceGroupConfig.groupType)
@@ -36,21 +43,21 @@ module resourceGroupModule 'modules/resourceGroup.bicep' = {
   }
 }
 
-// Module references
-module storageAccountModule 'modules/storageAccount.bicep' = {
-  dependsOn: [resourceGroupModule]
-  scope: resourceGroup
-  name: 'storageAccount'
-  params: {
-    prefix: prefix
-    environment: environment
-    region: region
-    location: location
-    resourceIndex: '001'
-    storageSku: storageConfig.sku
-    accessTier: storageConfig.accessTier
-  }
-}
+// // Module references
+// module storageAccountModule 'modules/storageAccount.bicep' = {
+//   dependsOn: [resourceGroupModule]
+//   scope: resourceGroup
+//   name: 'storageAccount'
+//   params: {
+//     prefix: prefix
+//     environment: environment
+//     region: region
+//     location: location
+//     resourceIndex: '001'
+//     storageSku: storageConfig.sku
+//     accessTier: storageConfig.accessTier
+//   }
+// }
 
 module appServicePlanModule 'modules/appServicePlan.bicep' = {
   dependsOn: [resourceGroupModule]
@@ -66,6 +73,68 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = {
     appServicePlanCapacity: appServicePlanConfig.capacity
   }
 }
+
+// Virtual Network Module (deployed when VNET integration is enabled)
+module vnetModule 'modules/vnet.bicep' = if (networkingConfig.enableVnetIntegration) {
+  dependsOn: [resourceGroupModule]
+  scope: resourceGroup
+  name: 'vnet'
+  params: {
+    prefix: prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: '001'
+    addressSpace: networkingConfig.vnetAddressSpace
+    subnets: [
+      {
+        name: 'app-subnet'
+        addressPrefix: '10.0.1.0/24'
+        delegations: [
+          {
+            name: 'serverFarmDelegation'
+            properties: {
+              serviceName: 'Microsoft.Web/serverFarms'
+            }
+          }
+        ]
+        serviceEndpoints: [
+          {
+            service: 'Microsoft.Storage'
+          }
+          {
+            service: 'Microsoft.KeyVault'
+          }
+        ]
+      }
+      {
+        name: 'gateway-subnet'
+        addressPrefix: '10.0.2.0/24'
+        delegations: []
+        serviceEndpoints: []
+      }
+    ]
+  }
+}
+
+// Application Gateway Module (deployed when Application Gateway is enabled)
+// module appGatewayModule 'modules/applicationGateway.bicep' = if (networkingConfig.enableApplicationGateway && networkingConfig.enableVnetIntegration) {
+//   dependsOn: [resourceGroupModule, vnetModule]
+//   scope: resourceGroup
+//   name: 'applicationGateway'
+//   params: {
+//     prefix: prefix
+//     environment: environment
+//     region: region
+//     location: location
+//     resourceIndex: '001'
+//     gatewaySubnetId: networkingConfig.enableVnetIntegration ? vnetModule.outputs.gatewaySubnetId : ''
+//     backendPoolName: 'app-backend-pool'
+//     backendAddresses: [for appConfig in appServiceConfig: {
+//       fqdn: '${prefix}-app-${environment}-${region}-${appConfig.index}.azurewebsites.net'
+//     }]
+//   }
+// }
 
 // Deploy app services in parallel batches for improved performance
 // @batchSize(2) controls the number of concurrent module deployments:
@@ -89,15 +158,21 @@ module appServiceModules 'modules/appService.bicep' = [for (appConfig, index) in
     siteConfig: appConfig.siteConfig
     kind: appConfig.kind
     httpsOnly: appConfig.httpsOnly
+    vnetIntegrationSubnetId: networkingConfig.enableVnetIntegration ? vnetModule.outputs.appSubnetId : ''
+    vnetRouteAllEnabled: networkingConfig.enableVnetIntegration
   }
 }]
 
 // Outputs
 output resourceGroupId string = resourceGroupModule.outputs.id
 output resourceGroupName string = resourceGroupModule.outputs.name
-output storageAccountId string = storageAccountModule.outputs.id
-output storageAccountName string = storageAccountModule.outputs.name
-output storageAccountBlobEndpoint string = storageAccountModule.outputs.primaryBlobEndpoint
+// output storageAccountId string = storageAccountModule.outputs.id
+// output storageAccountName string = storageAccountModule.outputs.name
+// output storageAccountBlobEndpoint string = storageAccountModule.outputs.primaryBlobEndpoint
 output appServicePlanId string = appServicePlanModule.outputs.id
 output appServicePlanName string = appServicePlanModule.outputs.name
 output appServiceUrls array = [for i in range(0, length(appServiceConfig)): appServiceModules[i].outputs.url]
+output vnetId string = networkingConfig.enableVnetIntegration ? vnetModule.outputs.id : ''
+output vnetName string = networkingConfig.enableVnetIntegration ? vnetModule.outputs.name : ''
+// output appGatewayId string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.id : ''
+// output appGatewayPublicIp string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.publicIpAddress : ''
