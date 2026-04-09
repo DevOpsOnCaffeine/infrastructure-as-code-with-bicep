@@ -20,7 +20,17 @@ param appServicePlanConfig = {
   capacity: 2
 }
 
-
-param appServiceConfig = {
-  enableAlwaysOn: true
-}
+param appServiceConfig = [
+  { 
+    name: 'web001'
+    kind: 'app,linux'
+    siteConfig: {
+      linuxFxVersion: 'DOTNETCORE|8.0'
+      alwaysOn: true
+      http20Enabled: true
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
+    }
+    httpsOnly: true
+  }
+]

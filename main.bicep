@@ -18,8 +18,8 @@ param storageConfig object
 // App Service Plan configuration
 param appServicePlanConfig object
 
-// App Service configuration
-param appServiceConfig object
+// App Service configuration (array for multiple apps)
+param appServiceConfig array = []
 
 // Single source of truth for resource group name
 func buildNameWithHyphens(prefix string, resType string, env string, reg string, suffix string) string => '${prefix}-${resType}-${env}-${reg}-${suffix}'
@@ -67,20 +67,30 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = {
   }
 }
 
-module appServiceModule 'modules/appService.bicep' = {
+// Deploy app services in parallel batches for improved performance
+// @batchSize(2) controls the number of concurrent module deployments:
+//   - Each batch processes up to 2 app services simultaneously
+//   - Reduces overall deployment time compared to sequential deployment
+//   - For 3 apps: batch 1 deploys app-001 and app-002 in parallel, batch 2 deploys app-003
+// Note: All apps in the loop share the same App Service Plan (appServicePlanModule)
+// Adjust @batchSize based on resource limits and concurrent deployment capacity
+@batchSize(2)
+module appServiceModules 'modules/appService.bicep' = [for (appConfig, index) in appServiceConfig: {
   dependsOn: [resourceGroupModule]
   scope: resourceGroup
-  name: 'appService'
+  name: 'appService-${appConfig.index}'
   params: {
     prefix: prefix
     environment: environment
     region: region
     location: location
-    resourceIndex: '001'
+    resourceIndex: appConfig.index
     appServicePlanId: appServicePlanModule.outputs.id
-    enableAlwaysOn: appServiceConfig.enableAlwaysOn
+    siteConfig: appConfig.siteConfig
+    kind: appConfig.kind
+    httpsOnly: appConfig.httpsOnly
   }
-}
+}]
 
 // Outputs
 output resourceGroupId string = resourceGroupModule.outputs.id
@@ -90,6 +100,4 @@ output storageAccountName string = storageAccountModule.outputs.name
 output storageAccountBlobEndpoint string = storageAccountModule.outputs.primaryBlobEndpoint
 output appServicePlanId string = appServicePlanModule.outputs.id
 output appServicePlanName string = appServicePlanModule.outputs.name
-output appServiceId string = appServiceModule.outputs.id
-output appServiceName string = appServiceModule.outputs.name
-output appServiceUrl string = appServiceModule.outputs.url
+output appServiceUrls array = [for i in range(0, length(appServiceConfig)): appServiceModules[i].outputs.url]
