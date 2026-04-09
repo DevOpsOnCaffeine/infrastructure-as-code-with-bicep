@@ -3,6 +3,8 @@ param environment string
 param region string
 param location string
 param resourceIndex string = '001'
+param appServicePlanSkuName string = 'S1'
+param appServicePlanCapacity int = 1
 
 func buildNameWithHyphens(pre string, resType string, env string, reg string, id string) string => '${pre}-${resType}-${env}-${reg}-${id}'
 
@@ -11,9 +13,9 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   location: location
   kind: 'Linux'
   sku: {
-    name: 'S1'
-    tier: 'Standard'
-    capacity: 1
+    name: appServicePlanSkuName
+    tier: appServicePlanSkuName == 'F1' ? 'Free' : appServicePlanSkuName == 'D1' ? 'Shared' : startsWith(appServicePlanSkuName, 'S') ? 'Standard' : startsWith(appServicePlanSkuName, 'P') ? 'Premium' : 'Standard'
+    capacity: appServicePlanCapacity
   }
   properties: {
     reserved: true

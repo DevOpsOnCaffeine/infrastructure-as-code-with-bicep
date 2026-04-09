@@ -1,11 +1,20 @@
 targetScope = 'resourceGroup'
 
 // Naming convention variables
-param prefix string = 'dummyfin'
-param environment string = 'dev'
-param region string = 'cac'
+param prefix string
+param environment string
+param region string
 
 param location string = resourceGroup().location
+
+// Storage Account configuration
+param storageConfig object
+
+// App Service Plan configuration
+param appServicePlanConfig object
+
+// App Service configuration
+param appServiceConfig object
 
 // Module references
 module storageAccountModule 'modules/storageAccount.bicep' = {
@@ -16,6 +25,8 @@ module storageAccountModule 'modules/storageAccount.bicep' = {
     region: region
     location: location
     resourceIndex: '001'
+    storageSku: storageConfig.sku
+    accessTier: storageConfig.accessTier
   }
 }
 
@@ -27,6 +38,8 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = {
     region: region
     location: location
     resourceIndex: '001'
+    appServicePlanSkuName: appServicePlanConfig.skuName
+    appServicePlanCapacity: appServicePlanConfig.capacity
   }
 }
 
@@ -39,6 +52,7 @@ module appServiceModule 'modules/appService.bicep' = {
     location: location
     resourceIndex: '001'
     appServicePlanId: appServicePlanModule.outputs.id
+    enableAlwaysOn: appServiceConfig.enableAlwaysOn
   }
 }
 

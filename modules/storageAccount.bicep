@@ -3,6 +3,8 @@ param environment string
 param region string
 param location string
 param resourceIndex string = '001'
+param storageSku string = 'Standard_LRS'
+param accessTier string = 'Hot'
 
 func buildNameWithoutHyphens(pre string, resType string, env string, reg string, id string) string => '${pre}${resType}${env}${reg}${id}'
 
@@ -11,10 +13,10 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   location: location
   kind: 'StorageV2'
   sku: {
-    name: 'Standard_LRS'
+    name: storageSku
   }
   properties: {
-    accessTier: 'Hot'
+    accessTier: accessTier
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
   }

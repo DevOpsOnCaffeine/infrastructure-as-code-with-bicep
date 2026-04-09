@@ -3,6 +3,10 @@
         "/^az deployment group create -g dummyFin-rg-dev-cac-01 -f \\.\\\\main\\.bicep$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^az deployment group create -g dummyFin-rg-dev-cac-01 -f main\\.bicep -p main\\.dev\\.bicepparams$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
