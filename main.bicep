@@ -28,7 +28,44 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   }
 }
 
+resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
+  name: buildNameWithHyphens(prefix, 'asp', environment, region, '001')
+  location: location
+  kind: 'Linux'
+  sku: {
+    name: 'S1'
+    tier: 'Standard'
+    capacity: 1
+  }
+  properties: {
+    reserved: true
+  }
+}
 
+resource appService 'Microsoft.Web/sites@2023-12-01' = {
+  name: buildNameWithHyphens(prefix, 'app', environment, region, '001')
+  location: location
+  kind: 'app,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: appServicePlan.id
+    siteConfig: {
+      linuxFxVersion: 'DOTNETCORE|8.0'
+      alwaysOn: true
+      http20Enabled: true
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
+    }
+    httpsOnly: true
+  }
+}
 
 output storageAccountId string = storageAccount.id
 output storageAccountName string = storageAccount.name
+output appServicePlanId string = appServicePlan.id
+output appServicePlanName string = appServicePlan.name
+output appServiceId string = appService.id
+output appServiceName string = appService.name
+output appServiceUrl string = 'https://${appService.properties.defaultHostName}'
