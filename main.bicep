@@ -118,23 +118,23 @@ module vnetModule 'modules/vnet.bicep' = if (networkingConfig.enableVnetIntegrat
 }
 
 // Application Gateway Module (deployed when Application Gateway is enabled)
-// module appGatewayModule 'modules/applicationGateway.bicep' = if (networkingConfig.enableApplicationGateway && networkingConfig.enableVnetIntegration) {
-//   dependsOn: [resourceGroupModule, vnetModule]
-//   scope: resourceGroup
-//   name: 'applicationGateway'
-//   params: {
-//     prefix: prefix
-//     environment: environment
-//     region: region
-//     location: location
-//     resourceIndex: '001'
-//     gatewaySubnetId: networkingConfig.enableVnetIntegration ? vnetModule.outputs.gatewaySubnetId : ''
-//     backendPoolName: 'app-backend-pool'
-//     backendAddresses: [for appConfig in appServiceConfig: {
-//       fqdn: '${prefix}-app-${environment}-${region}-${appConfig.index}.azurewebsites.net'
-//     }]
-//   }
-// }
+module appGatewayModule 'modules/applicationGateway.bicep' = if (networkingConfig.enableApplicationGateway && networkingConfig.enableVnetIntegration) {
+  dependsOn: [resourceGroupModule]
+  scope: resourceGroup
+  name: 'applicationGateway'
+  params: {
+    prefix: prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: '001'
+    gatewaySubnetId: networkingConfig.enableVnetIntegration ? vnetModule.outputs.gatewaySubnetId : ''
+    backendPoolName: 'app-backend-pool'
+    backendAddresses: [for appConfig in appServiceConfig: {
+      fqdn: '${prefix}-app-${environment}-${region}-${appConfig.index}.azurewebsites.net'
+    }]
+  }
+}
 
 // Deploy app services in parallel batches for improved performance
 // @batchSize(2) controls the number of concurrent module deployments:
@@ -174,5 +174,5 @@ output appServicePlanName string = appServicePlanModule.outputs.name
 output appServiceUrls array = [for i in range(0, length(appServiceConfig)): appServiceModules[i].outputs.url]
 output vnetId string = networkingConfig.enableVnetIntegration ? vnetModule.outputs.id : ''
 output vnetName string = networkingConfig.enableVnetIntegration ? vnetModule.outputs.name : ''
-// output appGatewayId string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.id : ''
-// output appGatewayPublicIp string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.publicIpAddress : ''
+output appGatewayId string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.id : ''
+output appGatewayPublicIp string = networkingConfig.enableApplicationGateway ? appGatewayModule.outputs.publicIpAddress : ''
