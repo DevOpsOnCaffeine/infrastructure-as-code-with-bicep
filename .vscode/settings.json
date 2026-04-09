@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^az deployment group create -g dummyFin-rg-dev-cac-01 -f \\.\\\\main\\.bicep$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
