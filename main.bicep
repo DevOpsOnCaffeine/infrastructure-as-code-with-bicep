@@ -21,6 +21,18 @@ param appServicePlan object
 // App Service configuration (array for multiple apps)
 param appService array = []
 
+// User-assigned managed identities configuration
+param userAssignedIdentities array = []
+
+// RBAC role assignments at resource group scope
+param roleAssignments array = []
+
+// Key Vault configuration
+param keyVault object = {}
+
+// RBAC role assignments at Key Vault scope
+param keyVaultRoleAssignments array = []
+
 // Networking configuration
 param vnetApp object
 
@@ -44,6 +56,14 @@ param deploymentToggles object
 func buildNameWithHyphens(prefix string, resType string, env string, reg string, suffix string) string => '${prefix}-${resType}-${env}-${reg}-${suffix}'
 var resGroupName = buildNameWithHyphens(prefix, 'rg', environment, region, resourceGroup.groupType)
 var resGroupRef = az.resourceGroup(resGroupName)
+var resGroupId = subscriptionResourceId('Microsoft.Resources/resourceGroups', resGroupName)
+var deployUserAssignedIdentities = deploymentToggles.?userAssignedIdentities ?? false
+var deployRoleAssignments = deploymentToggles.?roleAssignments ?? false
+var deployKeyVault = deploymentToggles.?keyVault ?? false
+var deployKeyVaultRoleAssignments = deploymentToggles.?keyVaultRoleAssignments ?? false
+var userAssignedIdentityCount = deployUserAssignedIdentities ? length(userAssignedIdentities) : 0
+var roleAssignmentCount = deployRoleAssignments && userAssignedIdentityCount > 0 ? length(roleAssignments) : 0
+var keyVaultRoleAssignmentCount = deployKeyVault && deployKeyVaultRoleAssignments && userAssignedIdentityCount > 0 ? length(keyVaultRoleAssignments) : 0
 
 // Resource Group Module
 module resourceGroupModule 'modules/resourceGroup.bicep' = {
@@ -114,6 +134,63 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = if (deploymentToggl
     appServicePlanCapacity: appServicePlan.capacity
   }
 }
+
+module userAssignedIdentityModules 'modules/userAssignedIdentity.bicep' = [for identityConfig in (deployUserAssignedIdentities ? userAssignedIdentities : []): {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'userAssignedIdentity-${identityConfig.index}'
+  params: {
+    prefix: prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: identityConfig.index
+    tags: identityConfig.?tags ?? resourceGroup.tags
+  }
+}]
+
+module roleAssignmentModules 'modules/roleAssignment.bicep' = [for roleAssignmentConfig in (deployRoleAssignments && userAssignedIdentityCount > 0 ? roleAssignments : []): {
+  dependsOn: [resourceGroupModule, userAssignedIdentityModules]
+  scope: resGroupRef
+  name: 'roleAssignment-${roleAssignmentConfig.roleDefinitionId}'
+  params: {
+    principalId: userAssignedIdentityModules[0].outputs.principalId
+    roleDefinitionId: roleAssignmentConfig.roleDefinitionId
+    principalType: roleAssignmentConfig.?principalType ?? 'ServicePrincipal'
+    roleAssignmentNameSeed: resGroupId
+  }
+}]
+
+module keyVaultModule 'modules/keyVault.bicep' = if (deployKeyVault) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'keyVault'
+  params: {
+    prefix: keyVault.prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: keyVault.resourceIndex
+    skuName: keyVault.?skuName ?? 'standard'
+    enableRbacAuthorization: keyVault.?enableRbacAuthorization ?? true
+    enablePurgeProtection: keyVault.?enablePurgeProtection
+    softDeleteRetentionInDays: keyVault.?softDeleteRetentionInDays ?? 90
+    publicNetworkAccess: keyVault.?publicNetworkAccess ?? 'Enabled'
+    tags: resourceGroup.tags
+  }
+}
+
+module keyVaultRoleAssignmentModules 'modules/keyVaultRoleAssignment.bicep' = [for roleAssignmentConfig in (deployKeyVault && deployKeyVaultRoleAssignments && userAssignedIdentityCount > 0 ? keyVaultRoleAssignments : []): {
+  dependsOn: [resourceGroupModule, userAssignedIdentityModules]
+  scope: resGroupRef
+  name: 'keyVaultRoleAssignment-${roleAssignmentConfig.roleDefinitionId}'
+  params: {
+    keyVaultName: keyVaultModule!.outputs.name
+    principalId: userAssignedIdentityModules[0].outputs.principalId
+    roleDefinitionId: roleAssignmentConfig.roleDefinitionId
+    principalType: roleAssignmentConfig.?principalType ?? 'ServicePrincipal'
+  }
+}]
 
 module appSubnetNsgModule 'modules/nsg.bicep' = if (deploymentToggles.networkSecurityGroups) {
   dependsOn: [resourceGroupModule]
@@ -269,6 +346,7 @@ module appServiceModules 'modules/appService.bicep' = [for appConfig in (deploym
     httpsOnly: appConfig.httpsOnly
     vnetIntegrationSubnetId: appConfig.enableVnetIntegration ? vnetAppModule!.outputs.subnets[0].id : ''
     vnetRouteAllEnabled: appConfig.enableVnetIntegration
+    userAssignedIdentityResourceId: userAssignedIdentityCount > 0 ? userAssignedIdentityModules[0].outputs.id : ''
     applicationInsightsConnectionString: deploymentToggles.appInsights && deploymentToggles.logAnalytics ? appInsightsModule!.outputs.connectionString : ''
     logAnalyticsWorkspaceId: deploymentToggles.logAnalytics ? logAnalyticsModule!.outputs.id : ''
     appServiceDiagnostics: {
@@ -290,6 +368,13 @@ output appInsightsId string = deploymentToggles.appInsights && deploymentToggles
 output appInsightsName string = deploymentToggles.appInsights && deploymentToggles.logAnalytics ? appInsightsModule!.outputs.name : ''
 output appServicePlanId string = deploymentToggles.appServicePlan ? appServicePlanModule!.outputs.id : ''
 output appServicePlanName string = deploymentToggles.appServicePlan ? appServicePlanModule!.outputs.name : ''
+output userAssignedIdentityIds array = [for i in range(0, userAssignedIdentityCount): userAssignedIdentityModules[i].outputs.id]
+output userAssignedIdentityPrincipalIds array = [for i in range(0, userAssignedIdentityCount): userAssignedIdentityModules[i].outputs.principalId]
+output roleAssignmentIds array = [for i in range(0, roleAssignmentCount): roleAssignmentModules[i].outputs.id]
+output keyVaultId string = deployKeyVault ? keyVaultModule!.outputs.id : ''
+output keyVaultName string = deployKeyVault ? keyVaultModule!.outputs.name : ''
+output keyVaultUri string = deployKeyVault ? keyVaultModule!.outputs.vaultUri : ''
+output keyVaultRoleAssignmentIds array = [for i in range(0, keyVaultRoleAssignmentCount): keyVaultRoleAssignmentModules[i].outputs.id]
 output appServiceUrls array = [for i in range(0, length(deploymentToggles.appServices ? appService : [])): appServiceModules[i].outputs.url]
 output vnetId string = deploymentToggles.vnetApp ? vnetAppModule!.outputs.id : ''
 output vnetName string = deploymentToggles.vnetApp ? vnetAppModule!.outputs.name : ''

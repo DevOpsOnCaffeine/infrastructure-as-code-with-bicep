@@ -17,6 +17,8 @@ param httpsOnly bool = true
 param vnetIntegrationSubnetId string = ''
 @description('Optional: Whether to route all traffic through VNET')
 param vnetRouteAllEnabled bool = false
+@description('Optional: User-assigned managed identity resource ID to attach to the app service')
+param userAssignedIdentityResourceId string = ''
 @description('Optional: Application Insights connection string to inject into app settings')
 param applicationInsightsConnectionString string = ''
 @description('Optional: Log Analytics workspace for App Service diagnostic settings')
@@ -33,8 +35,13 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   name: buildNameWithHyphens(prefix, 'app', environment, region, resourceIndex)
   location: location
   kind: kind
-  identity: {
+  identity: empty(userAssignedIdentityResourceId) ? {
     type: 'SystemAssigned'
+  } : {
+    type: 'SystemAssigned, UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedIdentityResourceId}': {}
+    }
   }
   properties: {
     serverFarmId: appServicePlanId

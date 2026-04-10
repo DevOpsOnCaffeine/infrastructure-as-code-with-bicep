@@ -61,6 +61,45 @@ param appService = [
   // }
 ]
 
+// User-assigned identity configuration for dev
+param userAssignedIdentities = [
+  {
+    index: '001'
+    tags: {
+      workload: 'app'
+      environment: 'dev'
+    }
+  }
+]
+
+// Resource group scoped RBAC assignments for the first user-assigned identity
+// Reader role: acdd72a7-3385-48ef-bd42-f606fba81ae7
+param roleAssignments = [
+  {
+    roleDefinitionId: 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
+    principalType: 'ServicePrincipal'
+  }
+]
+
+// Key Vault configuration for dev
+param keyVault = {
+  prefix: 'dummyfin'
+  resourceIndex: '002'
+  skuName: 'standard'
+  enableRbacAuthorization: true
+  softDeleteRetentionInDays: 90
+  publicNetworkAccess: 'Enabled'
+}
+
+// Key Vault scoped RBAC assignments for the first user-assigned identity
+// Key Vault Secrets User role: 4633458b-17de-408a-b874-0445c86b69e6
+param keyVaultRoleAssignments = [
+  {
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
+    principalType: 'ServicePrincipal'
+  }
+]
+
 // Networking configuration for dev environment
 param vnetApp = {
   prefix: 'app'
@@ -184,12 +223,16 @@ param deploymentToggles = {
   storageAccount: false
   appServicePlan: false
   appServices: false
-  vnetApp: true
-  vnetDb: true
+  vnetApp: false
+  vnetDb: false
   applicationGateway: false
-  vnetPeering: true
-  logAnalytics: true
+  vnetPeering: false
+  logAnalytics: false
   appInsights: false
   appServiceDiagnostics: false
   networkSecurityGroups: false
+  userAssignedIdentities: true
+  roleAssignments: true
+  keyVault: true
+  keyVaultRoleAssignments: true
 }

@@ -62,6 +62,46 @@ param appService = [
   }
 ]
 
+// User-assigned identity configuration for prd
+param userAssignedIdentities = [
+  {
+    index: '001'
+    tags: {
+      workload: 'app'
+      environment: 'prd'
+    }
+  }
+]
+
+// Resource group scoped RBAC assignments for the first user-assigned identity
+// Reader role: acdd72a7-3385-48ef-bd42-f606fba81ae7
+param roleAssignments = [
+  {
+    roleDefinitionId: 'acdd72a7-3385-48ef-bd42-f606fba81ae7'
+    principalType: 'ServicePrincipal'
+  }
+]
+
+// Key Vault configuration for prd
+param keyVault = {
+  prefix: 'dummyfin'
+  resourceIndex: '001'
+  skuName: 'standard'
+  enableRbacAuthorization: true
+  enablePurgeProtection: true
+  softDeleteRetentionInDays: 90
+  publicNetworkAccess: 'Enabled'
+}
+
+// Key Vault scoped RBAC assignments for the first user-assigned identity
+// Key Vault Secrets User role: 4633458b-17de-408a-b874-0445c86b69e6
+param keyVaultRoleAssignments = [
+  {
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
+    principalType: 'ServicePrincipal'
+  }
+]
+
 // Networking configuration for production - with Application Gateway for HA
 param vnetApp = {
   prefix: 'app'
@@ -247,4 +287,8 @@ param deploymentToggles = {
   appInsights: true
   appServiceDiagnostics: true
   networkSecurityGroups: true
+  userAssignedIdentities: true
+  roleAssignments: true
+  keyVault: true
+  keyVaultRoleAssignments: true
 }

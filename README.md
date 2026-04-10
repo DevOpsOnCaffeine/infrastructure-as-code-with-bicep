@@ -9,6 +9,10 @@ Depending on the selected environment parameters, the deployment can provision:
 - A resource group
 - A Linux App Service Plan
 - One or more Linux Web Apps with system-assigned managed identities
+- Optional user-assigned managed identities for shared workload identity scenarios
+- Optional resource group scoped RBAC role assignments for managed identities
+- An Azure Key Vault configured for RBAC authorization
+- Optional Key Vault scoped RBAC role assignments for managed identities
 - An application Virtual Network for App Service integration
 - Network Security Groups for the app, gateway, and database subnet boundaries when enabled
 - An Application Gateway with public IP and backend pool entries for the deployed web apps
@@ -34,11 +38,15 @@ All major resource groups are controlled by `deploymentToggles` in each `.bicepp
 		|-- applicationGateway.bicep
 		|-- applicationInsights.bicep
 		|-- appService.bicep
+		|-- keyVault.bicep
+		|-- keyVaultRoleAssignment.bicep
 		|-- appServicePlan.bicep
 		|-- logAnalyticsWorkspace.bicep
 		|-- nsg.bicep
+		|-- roleAssignment.bicep
 		|-- resourceGroup.bicep
 		|-- storageAccount.bicep
+		|-- userAssignedIdentity.bicep
 		|-- vnet.bicep
 		`-- vnetPeering.bicep
 ```
@@ -113,6 +121,22 @@ Creates a workspace-based Application Insights resource and exposes its connecti
 
 Creates a storage account when enabled via `deploymentToggles.storageAccount`.
 
+### `modules/keyVault.bicep`
+
+Creates an Azure Key Vault with RBAC authorization enabled and configurable soft-delete and purge-protection behavior.
+
+### `modules/userAssignedIdentity.bicep`
+
+Creates user-assigned managed identities and returns principal and client IDs for downstream role assignments.
+
+### `modules/roleAssignment.bicep`
+
+Creates resource group scoped role assignments for a target principal using built-in Azure role definition IDs.
+
+### `modules/keyVaultRoleAssignment.bicep`
+
+Creates Key Vault scoped role assignments for a target principal using built-in Azure role definition IDs.
+
 ## Parameters expected by `main.bicep`
 
 | Parameter | Type | Purpose |
@@ -122,12 +146,23 @@ Creates a storage account when enabled via `deploymentToggles.storageAccount`.
 | `storage` | `object` | Storage account SKU and access tier |
 | `appServicePlan` | `object` | App Service Plan SKU and capacity |
 | `appService` | `array` | One or more web app definitions |
+| `userAssignedIdentities` | `array` | Optional user-assigned managed identity definitions |
+| `roleAssignments` | `array` | Optional RBAC role assignments applied at resource group scope |
+| `keyVault` | `object` | Optional Key Vault configuration |
+| `keyVaultRoleAssignments` | `array` | Optional RBAC role assignments applied at Key Vault scope |
 | `vnetApp` | `object` | App-tier VNet and subnet configuration |
 | `vnetDb` | `object` | Secondary VNet configuration |
 | `vnetAppDbPeering` | `object` | App-to-db and db-to-app peering settings |
 | `observability` | `object` | Log Analytics, App Insights, and diagnostics configuration |
 | `networkSecurity` | `object` | App, gateway, and db subnet NSG configuration |
 | `deploymentToggles` | `object` | Per-resource deployment switches |
+
+Identity and RBAC toggles:
+
+- `deploymentToggles.userAssignedIdentities`
+- `deploymentToggles.roleAssignments`
+- `deploymentToggles.keyVault`
+- `deploymentToggles.keyVaultRoleAssignments`
 
 ## Prerequisites
 

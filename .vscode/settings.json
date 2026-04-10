@@ -31,6 +31,26 @@
         "/^az bicep build-params --file main\\.dev\\.bicepparam 2>&1 \\| Out-String$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^az deployment sub validate --location canadacentral --template-file main\\.bicep --parameters main\\.dev\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az deployment sub validate --location canadacentral --template-file main\\.bicep --parameters main\\.tst\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az deployment sub validate --location canadacentral --template-file main\\.bicep --parameters main\\.stg\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az deployment sub validate --location canadacentral --template-file main\\.bicep --parameters main\\.prd\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az deployment sub create --location canadacentral -n deploy-dev-\\$\\(Get-Date -Format 'yyyyMMddHHmmss'\\) -f main\\.bicep -p main\\.dev\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
