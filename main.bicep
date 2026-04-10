@@ -61,9 +61,11 @@ var deployUserAssignedIdentities = deploymentToggles.?userAssignedIdentities ?? 
 var deployRoleAssignments = deploymentToggles.?roleAssignments ?? false
 var deployKeyVault = deploymentToggles.?keyVault ?? false
 var deployKeyVaultRoleAssignments = deploymentToggles.?keyVaultRoleAssignments ?? false
+var deployKeyVaultPrivateEndpoint = deployKeyVault && (deploymentToggles.?keyVaultPrivateEndpoint ?? false)
 var userAssignedIdentityCount = deployUserAssignedIdentities ? length(userAssignedIdentities) : 0
 var roleAssignmentCount = deployRoleAssignments && userAssignedIdentityCount > 0 ? length(roleAssignments) : 0
 var keyVaultRoleAssignmentCount = deployKeyVault && deployKeyVaultRoleAssignments && userAssignedIdentityCount > 0 ? length(keyVaultRoleAssignments) : 0
+var keyVaultPrivateEndpointSubnetName = keyVault.?privateEndpoint.?subnetName ?? 'private-endpoints-subnet'
 
 // Resource Group Module
 module resourceGroupModule 'modules/resourceGroup.bicep' = {
@@ -176,6 +178,40 @@ module keyVaultModule 'modules/keyVault.bicep' = if (deployKeyVault) {
     enablePurgeProtection: keyVault.?enablePurgeProtection
     softDeleteRetentionInDays: keyVault.?softDeleteRetentionInDays ?? 90
     publicNetworkAccess: keyVault.?publicNetworkAccess ?? 'Enabled'
+    tags: resourceGroup.tags
+  }
+}
+
+module keyVaultPrivateDnsZoneModule 'modules/privateDnsZone.bicep' = if (deployKeyVaultPrivateEndpoint && deploymentToggles.vnetApp) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'privateDnsZone-keyVault'
+  params: {
+    name: keyVault.?privateEndpoint.?privateDnsZoneName ?? 'privatelink.vaultcore.azure.net'
+    virtualNetworkLinks: [
+      {
+        name: keyVault.?privateEndpoint.?dnsZoneVnetLinkName ?? 'keyvault-link-${environment}-app'
+        virtualNetworkResourceId: vnetAppModule!.outputs.id
+        registrationEnabled: false
+      }
+    ]
+    tags: resourceGroup.tags
+  }
+}
+
+module keyVaultPrivateEndpointModule 'modules/privateEndpoint.bicep' = if (deployKeyVaultPrivateEndpoint && deploymentToggles.vnetApp) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'privateEndpoint-keyVault'
+  params: {
+    name: buildNameWithHyphens(keyVault.prefix, 'pep', environment, region, keyVault.?privateEndpoint.?resourceIndex ?? keyVault.resourceIndex)
+    location: location
+    subnetResourceId: '${vnetAppModule!.outputs.id}/subnets/${keyVaultPrivateEndpointSubnetName}'
+    targetResourceId: keyVaultModule!.outputs.id
+    groupIds: [
+      'vault'
+    ]
+    privateDnsZoneId: keyVaultPrivateDnsZoneModule!.outputs.id
     tags: resourceGroup.tags
   }
 }
@@ -374,6 +410,8 @@ output roleAssignmentIds array = [for i in range(0, roleAssignmentCount): roleAs
 output keyVaultId string = deployKeyVault ? keyVaultModule!.outputs.id : ''
 output keyVaultName string = deployKeyVault ? keyVaultModule!.outputs.name : ''
 output keyVaultUri string = deployKeyVault ? keyVaultModule!.outputs.vaultUri : ''
+output keyVaultPrivateDnsZoneId string = deployKeyVaultPrivateEndpoint && deploymentToggles.vnetApp ? keyVaultPrivateDnsZoneModule!.outputs.id : ''
+output keyVaultPrivateEndpointId string = deployKeyVaultPrivateEndpoint && deploymentToggles.vnetApp ? keyVaultPrivateEndpointModule!.outputs.id : ''
 output keyVaultRoleAssignmentIds array = [for i in range(0, keyVaultRoleAssignmentCount): keyVaultRoleAssignmentModules[i].outputs.id]
 output appServiceUrls array = [for i in range(0, length(deploymentToggles.appServices ? appService : [])): appServiceModules[i].outputs.url]
 output vnetId string = deploymentToggles.vnetApp ? vnetAppModule!.outputs.id : ''

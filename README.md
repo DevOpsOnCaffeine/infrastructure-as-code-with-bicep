@@ -12,6 +12,7 @@ Depending on the selected environment parameters, the deployment can provision:
 - Optional user-assigned managed identities for shared workload identity scenarios
 - Optional resource group scoped RBAC role assignments for managed identities
 - An Azure Key Vault configured for RBAC authorization
+- Optional private connectivity for Key Vault through a private endpoint and linked private DNS zone
 - Optional Key Vault scoped RBAC role assignments for managed identities
 - An application Virtual Network for App Service integration
 - Network Security Groups for the app, gateway, and database subnet boundaries when enabled
@@ -43,6 +44,8 @@ All major resource groups are controlled by `deploymentToggles` in each `.bicepp
 		|-- appServicePlan.bicep
 		|-- logAnalyticsWorkspace.bicep
 		|-- nsg.bicep
+		|-- privateDnsZone.bicep
+		|-- privateEndpoint.bicep
 		|-- roleAssignment.bicep
 		|-- resourceGroup.bicep
 		|-- storageAccount.bicep
@@ -125,6 +128,14 @@ Creates a storage account when enabled via `deploymentToggles.storageAccount`.
 
 Creates an Azure Key Vault with RBAC authorization enabled and configurable soft-delete and purge-protection behavior.
 
+### `modules/privateDnsZone.bicep`
+
+Creates a private DNS zone and links it to one or more virtual networks.
+
+### `modules/privateEndpoint.bicep`
+
+Creates a private endpoint and, when provided, associates it with a private DNS zone group.
+
 ### `modules/userAssignedIdentity.bicep`
 
 Creates user-assigned managed identities and returns principal and client IDs for downstream role assignments.
@@ -162,6 +173,7 @@ Identity and RBAC toggles:
 - `deploymentToggles.userAssignedIdentities`
 - `deploymentToggles.roleAssignments`
 - `deploymentToggles.keyVault`
+- `deploymentToggles.keyVaultPrivateEndpoint`
 - `deploymentToggles.keyVaultRoleAssignments`
 
 ## Prerequisites
@@ -219,6 +231,7 @@ The main deployment returns outputs for:
 - Resource group ID and name
 - App Service Plan ID and name
 - App Service URLs
+- Key Vault private DNS zone ID and Key Vault private endpoint ID when enabled
 - Application VNet ID and name when enabled
 - Application Gateway ID and public IP when enabled
 - Secondary VNet ID and name when enabled
@@ -233,6 +246,7 @@ The production parameter file currently enables the most complete topology:
 - App-tier VNet integration enabled
 - Application Gateway enabled
 - Secondary VNet enabled for a separate database tier
+- Key Vault private endpoint enabled on a dedicated subnet with linked private DNS zone
 - One-way peering from app VNet to database VNet
 - Gateway subnet NSG rules enabled so Application Gateway ingress remains reachable when subnet enforcement is on
 
@@ -241,6 +255,7 @@ The production parameter file currently enables the most complete topology:
 - The storage account module is commented out in `main.bicep`
 - Application Gateway backend settings currently use HTTP on port 80
 - App Service diagnostics are currently applied at the web app level only
+- Key Vault private endpoint support is currently additive; public network access can remain enabled until operators choose to harden further
 - App and db subnet NSGs currently establish the security boundary and use Azure default rules unless environment-specific rules are added
 
 ## Suggested next improvements

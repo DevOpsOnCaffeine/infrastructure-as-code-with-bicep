@@ -237,5 +237,6 @@ param deploymentToggles = {
   userAssignedIdentities: true
   roleAssignments: true
   keyVault: true
+  keyVaultPrivateEndpoint: false
   keyVaultRoleAssignments: true
 }

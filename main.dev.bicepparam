@@ -84,7 +84,7 @@ param roleAssignments = [
 // Key Vault configuration for dev
 param keyVault = {
   prefix: 'dummyfin'
-  resourceIndex: '002'
+  resourceIndex: '003'
   skuName: 'standard'
   enableRbacAuthorization: true
   softDeleteRetentionInDays: 90
@@ -130,6 +130,12 @@ param vnetApp = {
     {
       name: 'appgateway-subnet'
       addressPrefix: '10.1.2.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+    {
+      name: 'private-endpoints-subnet'
+      addressPrefix: '10.1.3.0/24'
       delegations: []
       serviceEndpoints: []
     }
@@ -223,7 +229,7 @@ param deploymentToggles = {
   storageAccount: false
   appServicePlan: false
   appServices: false
-  vnetApp: false
+  vnetApp: true
   vnetDb: false
   applicationGateway: false
   vnetPeering: false
@@ -231,8 +237,9 @@ param deploymentToggles = {
   appInsights: false
   appServiceDiagnostics: false
   networkSecurityGroups: false
-  userAssignedIdentities: true
-  roleAssignments: true
+  userAssignedIdentities: false
+  roleAssignments: false
   keyVault: true
-  keyVaultRoleAssignments: true
+  keyVaultPrivateEndpoint: true
+  keyVaultRoleAssignments: false
 }

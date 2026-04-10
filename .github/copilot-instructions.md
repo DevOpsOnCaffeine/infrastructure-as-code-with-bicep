@@ -101,7 +101,7 @@ Identity & Security (High Priority):
 - Application Insights instrumentation
 - Diagnostic settings and logging
 - Network Security Groups / firewall rules
-- Private endpoints and network integration
+- Private endpoints and private DNS integration
 
 Networking (High Priority):
 - Virtual networks (VNets)
@@ -109,6 +109,9 @@ Networking (High Priority):
 - Network integration for App Service (VNET integration)
 - Application Gateway or Traffic Manager
 - Service endpoints
+
+Recently implemented:
+- Key Vault private endpoint support with private DNS zone linkage
 
 Data & Configuration (Medium Priority):
 - SQL Database or Cosmos DB modules

@@ -91,6 +91,12 @@ param keyVault = {
   enablePurgeProtection: true
   softDeleteRetentionInDays: 90
   publicNetworkAccess: 'Enabled'
+  privateEndpoint: {
+    resourceIndex: '001'
+    subnetName: 'private-endpoints-subnet'
+    privateDnsZoneName: 'privatelink.vaultcore.azure.net'
+    dnsZoneVnetLinkName: 'keyvault-link-stg-app'
+  }
 }
 
 // Key Vault scoped RBAC assignments for the first user-assigned identity
@@ -132,6 +138,12 @@ param vnetApp = {
     {
       name: 'appgateway-subnet'
       addressPrefix: '10.1.2.0/24'
+      delegations: []
+      serviceEndpoints: []
+    }
+    {
+      name: 'private-endpoints-subnet'
+      addressPrefix: '10.1.3.0/24'
       delegations: []
       serviceEndpoints: []
     }
@@ -290,5 +302,6 @@ param deploymentToggles = {
   userAssignedIdentities: true
   roleAssignments: true
   keyVault: true
+  keyVaultPrivateEndpoint: true
   keyVaultRoleAssignments: true
 }
