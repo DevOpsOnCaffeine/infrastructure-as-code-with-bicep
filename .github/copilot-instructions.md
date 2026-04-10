@@ -61,3 +61,86 @@ Use this repository for Azure infrastructure-as-code work built with Bicep. Keep
 - Be precise about which file should change and why.
 - Mention Azure impact when a change affects cost, networking, identity, or availability.
 - When reviewing changes, prioritize deployment correctness, idempotency, and environment drift.
+
+## Scope of work
+
+### Features Covered
+
+Core Bicep Patterns:
+- Subscription-scoped deployments (`targetScope = 'subscription'`)
+- Modular architecture (4 dedicated modules: `resourceGroup`, `storage`, `appServicePlan`, `appService`)
+- Reusable module functions (`buildNameWithHyphens`)
+- Parameter files (`.bicepparam`) for 4 environments (`dev`, `tst`, `stg`, `prd`)
+- Object-based configuration (`resourceGroupConfig`, `storageConfig`, `appServicePlanConfig`, `appServiceConfig`)
+- Environment-specific parameter progression (`dev`/`tst`: `S1` -> `stg`: `S2` -> `prd`: `P3`)
+
+Deployment Patterns:
+- Loop deployments with `@batchSize(2)` for parallel execution
+- Explicit dependency management (`dependsOn` arrays)
+- Module scoping to resource groups (`scope: resourceGroup`)
+- Single source of truth for naming (`resourceGroupName` variable)
+
+Resource Features:
+- Storage Account: Multiple SKUs (`Standard_LRS`/`GRS` -> `Premium_GRS`), access tiers (`Hot`/`Cool`)
+- App Service Plan: Dynamic tier calculation based on SKU name, Linux hosting
+- App Service: `.NET 8`, `Node.js 20`, `PHP 8.2` runtimes, system-assigned managed identity, site configuration customization (`HTTP/2`, `TLS 1.2`, `FTPS` disabled, HTTPS enforcement), `alwaysOn` settings
+- Resource Group: Subscription-level creation with tags support
+
+Configuration Features:
+- JSON file loading for common settings (`loadJsonContent('common-settings.json')`)
+- Parameter defaults and overrides
+- Array looping for multiple app services
+- Outputs collection from loops
+
+### Remaining Features to Implement
+
+Identity & Security (High Priority):
+- User-assigned managed identities
+- Key Vault integration (references to secrets)
+- RBAC role assignments via Bicep (`Microsoft.Authorization/roleAssignments`)
+- Application Insights instrumentation
+- Diagnostic settings and logging
+- Network Security Groups / firewall rules
+- Private endpoints and network integration
+
+Networking (High Priority):
+- Virtual networks (VNets)
+- Subnets
+- Network integration for App Service (VNET integration)
+- Application Gateway or Traffic Manager
+- Service endpoints
+
+Data & Configuration (Medium Priority):
+- SQL Database or Cosmos DB modules
+- Application settings and environment variables
+- Connection strings in App Service config
+- Secrets management from Key Vault
+
+Advanced Patterns (Medium Priority):
+- Conditional deployments (`condition` property on resources/modules)
+- Deployment scripts (`Microsoft.Resources/deploymentScripts`)
+- Linked templates or registry references
+- Policy definitions and assignments
+- Resource locks
+- Deployment stacks
+
+Documentation & Validation (Medium Priority):
+- Metadata and descriptions on parameters
+- Output descriptions
+- Type definitions for complex objects
+- Bicep linter configuration (`.bicepconfig.json`)
+- Parameter validation rules
+- Comments explaining business logic
+
+CI/CD Integration (Lower Priority):
+- Azure DevOps Pipeline integration
+- GitHub Actions workflow for deployment
+- Pre-deployment validation scripts
+- Post-deployment approval gates
+
+Advanced Bicep Features (Lower Priority):
+- User-defined types (custom type definitions)
+- Advanced decorators (`@minLength`, `@maxLength`, `@allowed`, etc.)
+- Conditional expressions in parameters
+- Array/object filtering functions
+- Error handling patterns

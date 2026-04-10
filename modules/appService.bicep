@@ -5,7 +5,7 @@ param location string
 param appServicePlanId string
 param resourceIndex string = '001'
 param kind string = 'app,linux'
-param siteConfig object = {
+param site object = {
   linuxFxVersion: 'DOTNETCORE|8.0'
   alwaysOn: true
   http20Enabled: true
@@ -29,7 +29,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   }
   properties: {
     serverFarmId: appServicePlanId
-    siteConfig: siteConfig
+    siteConfig: site
     httpsOnly: httpsOnly
     virtualNetworkSubnetId: !empty(vnetIntegrationSubnetId) ? vnetIntegrationSubnetId : null
   }

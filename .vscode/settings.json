@@ -15,6 +15,10 @@
         "/^az group delete --name dummyfin-rg-dev-cac-app --yes$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^az bicep build --file main\\.bicep 2>&1 ; az bicep build-params --file main\\.dev\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
