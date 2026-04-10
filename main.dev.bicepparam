@@ -143,6 +143,42 @@ param vnetAppDbPeering = {
   }
 }
 
+param networkSecurity = {
+  app: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+  gateway: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+  db: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+}
+
+// Observability baseline configuration for dev environment
+param observability = {
+  logAnalytics: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    skuName: 'PerGB2018'
+    retentionInDays: 30
+  }
+  appInsights: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    applicationType: 'web'
+  }
+  diagnostics: {
+    appService: {
+      enableLogs: true
+      enableMetrics: true
+    }
+  }
+}
+
 // Deployment toggles for dev environment
 param deploymentToggles = {
   storageAccount: false
@@ -152,4 +188,8 @@ param deploymentToggles = {
   vnetDb: true
   applicationGateway: false
   vnetPeering: true
+  logAnalytics: true
+  appInsights: false
+  appServiceDiagnostics: false
+  networkSecurityGroups: false
 }

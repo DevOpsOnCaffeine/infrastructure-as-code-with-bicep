@@ -1,8 +1,5 @@
-param sourceVnetId string
 param sourceVnetName string
-param sourceResourceGroupName string
 param targetVnetId string
-param targetVnetName string
 param peeringName string = 'peering-to-target'
 param allowForwardedTraffic bool = true
 param allowGatewayTransit bool = false

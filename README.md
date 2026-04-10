@@ -10,11 +10,15 @@ Depending on the selected environment parameters, the deployment can provision:
 - A Linux App Service Plan
 - One or more Linux Web Apps with system-assigned managed identities
 - An application Virtual Network for App Service integration
+- Network Security Groups for the app, gateway, and database subnet boundaries when enabled
 - An Application Gateway with public IP and backend pool entries for the deployed web apps
 - A secondary Virtual Network intended for a database tier
-- VNet peering from the application VNet to the secondary VNet
+- Bidirectional VNet peering between application and secondary VNets (with configurable access in peering settings)
+- A Log Analytics workspace
+- An Application Insights instance (workspace-based)
+- Optional App Service diagnostic settings routed to Log Analytics
 
-The storage account module exists in the repo but is currently not enabled in the main deployment.
+All major resource groups are controlled by `deploymentToggles` in each `.bicepparam` file.
 
 ## Repository structure
 
@@ -28,8 +32,11 @@ The storage account module exists in the repo but is currently not enabled in th
 |-- main.prd.bicepparam
 `-- modules/
 		|-- applicationGateway.bicep
+		|-- applicationInsights.bicep
 		|-- appService.bicep
 		|-- appServicePlan.bicep
+		|-- logAnalyticsWorkspace.bicep
+		|-- nsg.bicep
 		|-- resourceGroup.bicep
 		|-- storageAccount.bicep
 		|-- vnet.bicep
@@ -76,7 +83,11 @@ Creates a Linux Web App with:
 
 ### `modules/vnet.bicep`
 
-Creates a virtual network and one or more subnets, including delegations and service endpoints.
+Creates a virtual network and one or more subnets, including delegations, service endpoints, and optional NSG associations.
+
+### `modules/nsg.bicep`
+
+Creates a Network Security Group and applies the environment-specific rule set passed from the parameter files.
 
 ### `modules/applicationGateway.bicep`
 
@@ -88,23 +99,35 @@ Creates an Application Gateway Standard_v2 instance with:
 
 ### `modules/vnetPeering.bicep`
 
-Creates a one-way peering from the application VNet to the secondary VNet.
+Creates VNet peering resources. In `main.bicep`, this module is used for both app-to-db and db-to-app peerings.
+
+### `modules/logAnalyticsWorkspace.bicep`
+
+Creates a Log Analytics workspace used for centralized diagnostics and monitoring.
+
+### `modules/applicationInsights.bicep`
+
+Creates a workspace-based Application Insights resource and exposes its connection string.
 
 ### `modules/storageAccount.bicep`
 
-Present in the repository but not currently referenced by `main.bicep`.
+Creates a storage account when enabled via `deploymentToggles.storageAccount`.
 
 ## Parameters expected by `main.bicep`
 
 | Parameter | Type | Purpose |
 |---|---|---|
 | `environment` | `string` | Environment short code such as `dev` or `prd` |
-| `resourceGroupConfig` | `object` | Resource group suffix and tags |
-| `storageConfig` | `object` | Reserved for storage settings if storage is enabled later |
-| `appServicePlanConfig` | `object` | App Service Plan SKU and capacity |
-| `appServiceConfig` | `array` | One or more web app definitions |
-| `vnetAppConfig` | `object` | App-tier VNet and Application Gateway switches |
-| `vnetDbConfig` | `object` | Secondary VNet and peering configuration |
+| `resourceGroup` | `object` | Resource group suffix and tags |
+| `storage` | `object` | Storage account SKU and access tier |
+| `appServicePlan` | `object` | App Service Plan SKU and capacity |
+| `appService` | `array` | One or more web app definitions |
+| `vnetApp` | `object` | App-tier VNet and subnet configuration |
+| `vnetDb` | `object` | Secondary VNet configuration |
+| `vnetAppDbPeering` | `object` | App-to-db and db-to-app peering settings |
+| `observability` | `object` | Log Analytics, App Insights, and diagnostics configuration |
+| `networkSecurity` | `object` | App, gateway, and db subnet NSG configuration |
+| `deploymentToggles` | `object` | Per-resource deployment switches |
 
 ## Prerequisites
 
@@ -176,18 +199,19 @@ The production parameter file currently enables the most complete topology:
 - Application Gateway enabled
 - Secondary VNet enabled for a separate database tier
 - One-way peering from app VNet to database VNet
+- Gateway subnet NSG rules enabled so Application Gateway ingress remains reachable when subnet enforcement is on
 
 ## Notes and current limitations
 
 - The storage account module is commented out in `main.bicep`
-- VNet peering is currently unidirectional; a reverse peering is not created
 - Application Gateway backend settings currently use HTTP on port 80
-- The `vnetDbConfig.region` value is present in parameter files but the main template uses the primary `region` value in naming for the secondary VNet module call
+- App Service diagnostics are currently applied at the web app level only
+- App and db subnet NSGs currently establish the security boundary and use Azure default rules unless environment-specific rules are added
 
 ## Suggested next improvements
 
 1. Re-enable and wire the storage account module if storage is required.
-2. Add bidirectional VNet peering if the database tier requires return-path connectivity.
+2. Add explicit app and db subnet NSG rules once target flows and service dependencies are finalized.
 3. Add HTTPS listener and certificate handling for Application Gateway.
 4. Add tag standards and cost-allocation metadata in each environment parameter file.
 5. Add CI validation with `az deployment sub validate` for every `.bicepparam` file.

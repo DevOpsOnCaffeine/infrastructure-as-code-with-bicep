@@ -6,8 +6,6 @@ param resourceIndex string = '001'
 param gatewaySubnetId string
 param backendPoolName string = 'app-pool'
 param backendAddresses array = []
-param enableHttp2 bool = true
-param enableWaf bool = false
 
 func buildNameWithHyphens(pre string, resType string, env string, reg string, id string) string => '${pre}-${resType}-${env}-${reg}-${id}'
 func buildNameWithoutHyphens(pre string, type string, env string, reg string, id string) string => '${pre}${type}${env}${reg}${id}'

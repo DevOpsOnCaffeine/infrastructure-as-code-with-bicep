@@ -19,6 +19,18 @@
         "/^az bicep build --file main\\.bicep 2>&1 ; az bicep build-params --file main\\.dev\\.bicepparam 2>&1$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^az bicep build --file main\\.bicep 2>&1 ; az bicep build-params --file main\\.dev\\.bicepparam 2>&1 ; az bicep build-params --file main\\.tst\\.bicepparam 2>&1 ; az bicep build-params --file main\\.stg\\.bicepparam 2>&1 ; az bicep build-params --file main\\.prd\\.bicepparam 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az bicep build --file main\\.bicep 2>&1 \\| Out-String$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^az bicep build-params --file main\\.dev\\.bicepparam 2>&1 \\| Out-String$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

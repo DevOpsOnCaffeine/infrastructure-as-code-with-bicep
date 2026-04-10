@@ -42,6 +42,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
         serviceEndpoints: subnet.serviceEndpoints
         privateLinkServiceNetworkPolicies: 'Disabled'
         privateEndpointNetworkPolicies: 'Disabled'
+        networkSecurityGroup: empty(subnet.networkSecurityGroupResourceId) ? null : {
+          id: subnet.networkSecurityGroupResourceId
+        }
       }
     }]
   }

@@ -145,6 +145,42 @@ param vnetAppDbPeering = {
   }
 }
 
+param networkSecurity = {
+  app: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+  gateway: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+  db: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+}
+
+// Observability baseline configuration for tst environment
+param observability = {
+  logAnalytics: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    skuName: 'PerGB2018'
+    retentionInDays: 30
+  }
+  appInsights: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    applicationType: 'web'
+  }
+  diagnostics: {
+    appService: {
+      enableLogs: true
+      enableMetrics: true
+    }
+  }
+}
+
 // Deployment toggles for tst environment
 param deploymentToggles = {
   storageAccount: true
@@ -154,4 +190,8 @@ param deploymentToggles = {
   vnetDb: true
   applicationGateway: false
   vnetPeering: false
+  logAnalytics: true
+  appInsights: true
+  appServiceDiagnostics: true
+  networkSecurityGroups: true
 }

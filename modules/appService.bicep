@@ -17,6 +17,15 @@ param httpsOnly bool = true
 param vnetIntegrationSubnetId string = ''
 @description('Optional: Whether to route all traffic through VNET')
 param vnetRouteAllEnabled bool = false
+@description('Optional: Application Insights connection string to inject into app settings')
+param applicationInsightsConnectionString string = ''
+@description('Optional: Log Analytics workspace for App Service diagnostic settings')
+param logAnalyticsWorkspaceId string = ''
+@description('Optional: App Service diagnostics flags')
+param appServiceDiagnostics object = {
+  enableLogs: false
+  enableMetrics: false
+}
 
 func buildNameWithHyphens(pre string, resType string, env string, reg string, id string) string => '${pre}-${resType}-${env}-${reg}-${id}'
 
@@ -51,6 +60,36 @@ resource appServiceConfig 'Microsoft.Web/sites/config@2023-12-01' = {
   name: 'web'
   properties: {
     vnetRouteAllEnabled: vnetRouteAllEnabled
+  }
+}
+
+// Inject app settings only when App Insights is configured for this app.
+resource appSettingsConfig 'Microsoft.Web/sites/config@2023-12-01' = if (!empty(applicationInsightsConnectionString)) {
+  parent: appService
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsightsConnectionString
+    ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
+  }
+}
+
+resource appServiceDiagnosticSettings 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = if (!empty(logAnalyticsWorkspaceId) && (appServiceDiagnostics.enableLogs || appServiceDiagnostics.enableMetrics)) {
+  scope: appService
+  name: 'send-to-law'
+  properties: {
+    workspaceId: logAnalyticsWorkspaceId
+    logs: appServiceDiagnostics.enableLogs ? [
+      {
+        categoryGroup: 'allLogs'
+        enabled: true
+      }
+    ] : []
+    metrics: appServiceDiagnostics.enableMetrics ? [
+      {
+        category: 'AllMetrics'
+        enabled: true
+      }
+    ] : []
   }
 }
 

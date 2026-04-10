@@ -25,64 +25,20 @@ param appService array = []
 param vnetApp object
 
 // Secondary Virtual Network configuration for database tier
-param vnetDb object = {
-  enableVnetPeering: false
-  prefix: 'db'
-  resourceIndex: '001'
-  vnetAddressSpace: ['10.2.0.0/16']
-  subnets: [
-    {
-      name: 'db-subnet'
-      addressPrefix: '10.2.1.0/24'
-      delegations: [
-        {
-          name: 'sqlManagedInstanceDelegation'
-          properties: {
-            serviceName: 'Microsoft.Sql/managedInstances'
-          }
-        }
-      ]
-      serviceEndpoints: [
-        {
-          service: 'Microsoft.Storage'
-        }
-        {
-          service: 'Microsoft.KeyVault'
-        }
-      ]
-    }
-  ]
-}
+param vnetDb object 
 
 // VNET peering configuration
-param vnetAppDbPeering object = {
-  appToDb: {
-    peeringName: 'peer-to-db'
-    allowVirtualNetworkAccess: true
-    allowForwardedTraffic: true
-    allowGatewayTransit: false
-    useRemoteGateways: false
-  }
-  dbToApp: {
-    peeringName: 'peer-to-app'
-    allowVirtualNetworkAccess: false
-    allowForwardedTraffic: false
-    allowGatewayTransit: false
-    useRemoteGateways: false
-  }
-}
+param vnetAppDbPeering object
+
+// Observability baseline configuration
+param observability object
+
+// Network security baseline configuration
+param networkSecurity object
 
 // Resource deployment toggles
 // Set any flag to false to exclude that resource from the deployment
-param deploymentToggles object = {
-  storageAccount: true
-  appServicePlan: true
-  appServices: true
-  vnetApp: true
-  applicationGateway: false
-  vnetDb: true
-  vnetPeering: false
-}
+param deploymentToggles object 
 
 // Single source of truth for resource group name
 func buildNameWithHyphens(prefix string, resType string, env string, reg string, suffix string) string => '${prefix}-${resType}-${env}-${reg}-${suffix}'
@@ -114,6 +70,36 @@ module storageAccountModule 'modules/storageAccount.bicep' = if (deploymentToggl
   }
 }
 
+module logAnalyticsModule 'modules/logAnalyticsWorkspace.bicep' = if (deploymentToggles.logAnalytics) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'logAnalytics'
+  params: {
+    prefix: observability.logAnalytics.prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: observability.logAnalytics.resourceIndex
+    skuName: observability.logAnalytics.skuName
+    retentionInDays: observability.logAnalytics.retentionInDays
+  }
+}
+
+module appInsightsModule 'modules/applicationInsights.bicep' = if (deploymentToggles.appInsights && deploymentToggles.logAnalytics) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'applicationInsights'
+  params: {
+    prefix: observability.appInsights.prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: observability.appInsights.resourceIndex
+    applicationType: observability.appInsights.applicationType
+    workspaceResourceId: logAnalyticsModule!.outputs.id
+  }
+}
+
 module appServicePlanModule 'modules/appServicePlan.bicep' = if (deploymentToggles.appServicePlan) {
   dependsOn: [resourceGroupModule]
   scope: resGroupRef
@@ -129,9 +115,53 @@ module appServicePlanModule 'modules/appServicePlan.bicep' = if (deploymentToggl
   }
 }
 
+module appSubnetNsgModule 'modules/nsg.bicep' = if (deploymentToggles.networkSecurityGroups) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'networkSecurityGroup-app'
+  params: {
+    prefix: vnetApp.prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: networkSecurity.app.resourceIndex
+    securityRules: networkSecurity.app.securityRules
+    tags: resourceGroup.tags
+  }
+}
+
+module appGatewaySubnetNsgModule 'modules/nsg.bicep' = if (deploymentToggles.networkSecurityGroups && deploymentToggles.applicationGateway) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'networkSecurityGroup-gateway'
+  params: {
+    prefix: 'agw'
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: networkSecurity.gateway.resourceIndex
+    securityRules: networkSecurity.gateway.securityRules
+    tags: resourceGroup.tags
+  }
+}
+
+module dbSubnetNsgModule 'modules/nsg.bicep' = if (deploymentToggles.networkSecurityGroups) {
+  dependsOn: [resourceGroupModule]
+  scope: resGroupRef
+  name: 'networkSecurityGroup-db'
+  params: {
+    prefix: vnetDb.prefix
+    environment: environment
+    region: region
+    location: location
+    resourceIndex: networkSecurity.db.resourceIndex
+    securityRules: networkSecurity.db.securityRules
+    tags: resourceGroup.tags
+  }
+}
+
 // Virtual Network Module
 module vnetAppModule 'modules/vnet.bicep' = if (deploymentToggles.vnetApp) {
-  dependsOn: [resourceGroupModule]
   scope: resGroupRef
   name: 'vnet-app'
   params: {
@@ -141,7 +171,9 @@ module vnetAppModule 'modules/vnet.bicep' = if (deploymentToggles.vnetApp) {
     location: location
     resourceIndex: vnetApp.resourceIndex
     addressSpace: vnetApp.vnetAddressSpace
-    subnets: vnetApp.subnets
+    subnets: [for subnet in vnetApp.subnets: union(subnet, {
+      networkSecurityGroupResourceId: deploymentToggles.networkSecurityGroups && subnet.name == 'app-subnet' ? appSubnetNsgModule!.outputs.id : deploymentToggles.networkSecurityGroups && deploymentToggles.applicationGateway && subnet.name == 'appgateway-subnet' ? appGatewaySubnetNsgModule!.outputs.id : ''
+    })]
   }
 }
 
@@ -166,7 +198,6 @@ module appGatewayModule 'modules/applicationGateway.bicep' = if (deploymentToggl
 
 // Secondary Virtual Network Module for database tier
 module vnetDbModule 'modules/vnet.bicep' = if (deploymentToggles.vnetDb) {
-  dependsOn: [resourceGroupModule]
   scope: resGroupRef
   name: 'vnet-db'
   params: {
@@ -176,7 +207,9 @@ module vnetDbModule 'modules/vnet.bicep' = if (deploymentToggles.vnetDb) {
     location: location
     resourceIndex: vnetDb.resourceIndex
     addressSpace: vnetDb.vnetAddressSpace
-    subnets: vnetDb.subnets
+    subnets: [for subnet in vnetDb.subnets: union(subnet, {
+      networkSecurityGroupResourceId: deploymentToggles.networkSecurityGroups && subnet.name == 'db-subnet' ? dbSubnetNsgModule!.outputs.id : ''
+    })]
   }
 }
 
@@ -185,11 +218,8 @@ module vnetPeeringAppToDb 'modules/vnetPeering.bicep' = if (deploymentToggles.vn
   scope: resGroupRef
   name: 'peering-app-to-db'
   params: {
-    sourceVnetId: vnetAppModule!.outputs.id
     sourceVnetName: vnetAppModule!.outputs.name
-    sourceResourceGroupName: resGroupName
     targetVnetId: vnetDbModule!.outputs.id
-    targetVnetName: vnetDbModule!.outputs.name
     peeringName: vnetAppDbPeering.appToDb.peeringName
     allowVirtualNetworkAccess: vnetAppDbPeering.appToDb.allowVirtualNetworkAccess
     allowForwardedTraffic: vnetAppDbPeering.appToDb.allowForwardedTraffic
@@ -205,11 +235,8 @@ module vnetPeeringDbToApp 'modules/vnetPeering.bicep' = if (deploymentToggles.vn
   scope: resGroupRef
   name: 'peering-db-to-app'
   params: {
-    sourceVnetId: vnetDbModule!.outputs.id
     sourceVnetName: vnetDbModule!.outputs.name
-    sourceResourceGroupName: resGroupName
     targetVnetId: vnetAppModule!.outputs.id
-    targetVnetName: vnetAppModule!.outputs.name
     peeringName: vnetAppDbPeering.dbToApp.peeringName
     allowVirtualNetworkAccess: vnetAppDbPeering.dbToApp.allowVirtualNetworkAccess
     allowForwardedTraffic: vnetAppDbPeering.dbToApp.allowForwardedTraffic
@@ -242,6 +269,12 @@ module appServiceModules 'modules/appService.bicep' = [for appConfig in (deploym
     httpsOnly: appConfig.httpsOnly
     vnetIntegrationSubnetId: appConfig.enableVnetIntegration ? vnetAppModule!.outputs.subnets[0].id : ''
     vnetRouteAllEnabled: appConfig.enableVnetIntegration
+    applicationInsightsConnectionString: deploymentToggles.appInsights && deploymentToggles.logAnalytics ? appInsightsModule!.outputs.connectionString : ''
+    logAnalyticsWorkspaceId: deploymentToggles.logAnalytics ? logAnalyticsModule!.outputs.id : ''
+    appServiceDiagnostics: {
+      enableLogs: deploymentToggles.appServiceDiagnostics ? observability.diagnostics.appService.enableLogs : false
+      enableMetrics: deploymentToggles.appServiceDiagnostics ? observability.diagnostics.appService.enableMetrics : false
+    }
   }
 }]
 
@@ -251,6 +284,10 @@ output resGroupName string = resourceGroupModule!.outputs.name
 output storageAccountId string = deploymentToggles.storageAccount ? storageAccountModule!.outputs.id : ''
 output storageAccountName string = deploymentToggles.storageAccount ? storageAccountModule!.outputs.name : ''
 output storageAccountBlobEndpoint string = deploymentToggles.storageAccount ? storageAccountModule!.outputs.primaryBlobEndpoint : ''
+output logAnalyticsWorkspaceId string = deploymentToggles.logAnalytics ? logAnalyticsModule!.outputs.id : ''
+output logAnalyticsWorkspaceName string = deploymentToggles.logAnalytics ? logAnalyticsModule!.outputs.name : ''
+output appInsightsId string = deploymentToggles.appInsights && deploymentToggles.logAnalytics ? appInsightsModule!.outputs.id : ''
+output appInsightsName string = deploymentToggles.appInsights && deploymentToggles.logAnalytics ? appInsightsModule!.outputs.name : ''
 output appServicePlanId string = deploymentToggles.appServicePlan ? appServicePlanModule!.outputs.id : ''
 output appServicePlanName string = deploymentToggles.appServicePlan ? appServicePlanModule!.outputs.name : ''
 output appServiceUrls array = [for i in range(0, length(deploymentToggles.appServices ? appService : [])): appServiceModules[i].outputs.url]
@@ -260,5 +297,8 @@ output appGatewayId string = deploymentToggles.applicationGateway ? appGatewayMo
 output appGatewayPublicIp string = deploymentToggles.applicationGateway ? appGatewayModule!.outputs.publicIpAddress : ''
 output vnetSecondaryId string = deploymentToggles.vnetDb ? vnetDbModule!.outputs.id : ''
 output vnetSecondaryName string = deploymentToggles.vnetDb ? vnetDbModule!.outputs.name : ''
+output appSubnetNsgId string = deploymentToggles.networkSecurityGroups ? appSubnetNsgModule!.outputs.id : ''
+output appGatewaySubnetNsgId string = deploymentToggles.networkSecurityGroups && deploymentToggles.applicationGateway ? appGatewaySubnetNsgModule!.outputs.id : ''
+output dbSubnetNsgId string = deploymentToggles.networkSecurityGroups ? dbSubnetNsgModule!.outputs.id : ''
 output vnetPeeringAppToDbId string = deploymentToggles.vnetPeering ? vnetPeeringAppToDb!.outputs.peeringId : ''
 output vnetPeeringDbToAppId string = deploymentToggles.vnetPeering ? vnetPeeringDbToApp!.outputs.peeringId : ''

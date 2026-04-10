@@ -145,6 +145,95 @@ param vnetAppDbPeering = {
   }
 }
 
+param networkSecurity = {
+  app: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+  gateway: {
+    resourceIndex: '001'
+    securityRules: [
+      {
+        name: 'Allow-Internet-Http'
+        properties: {
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 100
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'Internet'
+          sourcePortRange: '*'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '80'
+        }
+      }
+      {
+        name: 'Allow-Internet-Https'
+        properties: {
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 110
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'Internet'
+          sourcePortRange: '*'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '443'
+        }
+      }
+      {
+        name: 'Allow-GatewayManager'
+        properties: {
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 120
+          protocol: 'Tcp'
+          sourceAddressPrefix: 'GatewayManager'
+          sourcePortRange: '*'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '65200-65535'
+        }
+      }
+      {
+        name: 'Allow-AzureLoadBalancer'
+        properties: {
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 130
+          protocol: '*'
+          sourceAddressPrefix: 'AzureLoadBalancer'
+          sourcePortRange: '*'
+          destinationAddressPrefix: '*'
+          destinationPortRange: '*'
+        }
+      }
+    ]
+  }
+  db: {
+    resourceIndex: '001'
+    securityRules: []
+  }
+}
+
+// Observability baseline configuration for prd environment
+param observability = {
+  logAnalytics: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    skuName: 'PerGB2018'
+    retentionInDays: 30
+  }
+  appInsights: {
+    prefix: 'dummyfin'
+    resourceIndex: '001'
+    applicationType: 'web'
+  }
+  diagnostics: {
+    appService: {
+      enableLogs: true
+      enableMetrics: true
+    }
+  }
+}
+
 // Deployment toggles for prd environment
 param deploymentToggles = {
   storageAccount: true
@@ -154,4 +243,8 @@ param deploymentToggles = {
   vnetDb: true
   applicationGateway: true
   vnetPeering: true
+  logAnalytics: true
+  appInsights: true
+  appServiceDiagnostics: true
+  networkSecurityGroups: true
 }
